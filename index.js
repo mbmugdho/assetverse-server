@@ -33,7 +33,7 @@ app.use('/api/users', userRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err)
+  console.error('Error:', err)
   res.status(err.status || 500).json({
     message: err.message || 'Internal server error',
   })
@@ -43,7 +43,7 @@ const startServer = async () => {
   try {
     await connectDB()
     app.listen(port, () => {
-      console.log(`🚀 AssetVerse server running on port ${port}`)
+      console.log(`AssetVerse server running on port ${port}`)
     })
   } catch (err) {
     console.error('Failed to start server:', err)

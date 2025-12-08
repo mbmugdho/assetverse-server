@@ -1,10 +1,9 @@
 const express = require('express')
+const { issueJwt, logout } = require('../controllers/authController')
 
 const router = express.Router()
 
-//  test route
-router.get('/test', (req, res) => {
-  res.json({ message: 'Auth routes working' })
-})
+router.post('/jwt', issueJwt)
+router.post('/logout', logout)
 
 module.exports = router
