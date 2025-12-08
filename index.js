@@ -28,10 +28,12 @@ app.get('/health', (req, res) => {
 const authRoutes = require('./src/routes/authRoutes.js')
 const userRoutes = require('./src/routes/userRoutes.js')
 const assetRoutes = require('./src/routes/assetRoutes.js')
+const requestRoutes = require('./src/routes/requestRoutes.js')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/assets', assetRoutes)
+app.use('/api/requests', requestRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
