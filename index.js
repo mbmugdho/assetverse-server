@@ -27,9 +27,11 @@ app.get('/health', (req, res) => {
 // Attach routes (we'll fill these next)
 const authRoutes = require('./src/routes/authRoutes.js')
 const userRoutes = require('./src/routes/userRoutes.js')
+const assetRoutes = require('./src/routes/assetRoutes.js')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/assets', assetRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
