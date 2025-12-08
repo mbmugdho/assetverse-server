@@ -29,11 +29,13 @@ const authRoutes = require('./src/routes/authRoutes.js')
 const userRoutes = require('./src/routes/userRoutes.js')
 const assetRoutes = require('./src/routes/assetRoutes.js')
 const requestRoutes = require('./src/routes/requestRoutes.js')
+const assignmentRoutes = require('./src/routes/assignmentRoutes.js')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/assets', assetRoutes)
 app.use('/api/requests', requestRoutes)
+app.use('/api/assigned-assets', assignmentRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
