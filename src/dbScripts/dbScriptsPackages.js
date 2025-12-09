@@ -37,7 +37,7 @@ const seedPackagesIfNeeded = async () => {
         ],
       },
     ])
-    console.log('✅ Seeded packages collection')
+    console.log('Seeded packages collection')
   }
 }
 
