@@ -1,13 +1,7 @@
-// src/controllers/userController.js
 const { getDB } = require('../config/db')
 
 /**
  * POST /api/users
- * Body:
- *  Employee:
- *    { name, email, dateOfBirth, role: 'employee' }
- *  HR:
- *    { name, email, dateOfBirth, role: 'hr', companyName, companyLogo }
  */
 const createUser = async (req, res, next) => {
   try {
@@ -42,7 +36,7 @@ const createUser = async (req, res, next) => {
       name,
       email,
       dateOfBirth: new Date(dateOfBirth),
-      role, // 'employee' or 'hr'
+      role, 
       profileImage: '',
       createdAt: now,
       updatedAt: now,
@@ -75,7 +69,7 @@ const getMe = async (req, res, next) => {
 
     const user = await usersColl.findOne(
       { email: req.user.email },
-      { projection: { password: 0 } } // we don't store passwords, just safety
+      { projection: { password: 0 } } 
     )
 
     if (!user) {
@@ -88,4 +82,64 @@ const getMe = async (req, res, next) => {
   }
 }
 
-module.exports = { createUser, getMe }
+/**
+ * PATCH /api/users/me
+ * Update current user's profile
+ */
+const updateMe = async (req, res, next) => {
+  try {
+    const db = getDB()
+    const usersColl = db.collection('users')
+
+    const email = req.user.email
+    if (!email) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    const existing = await usersColl.findOne({ email })
+    if (!existing) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    const {
+      name,
+      dateOfBirth,
+      profileImage,
+      companyName,
+      companyLogo,
+    } = req.body
+
+    const update = {}
+    if (name !== undefined) update.name = name
+    if (profileImage !== undefined) update.profileImage = profileImage
+    if (dateOfBirth) update.dateOfBirth = new Date(dateOfBirth)
+
+    // Only HR can update company info
+    if (existing.role === 'hr') {
+      if (companyName !== undefined) update.companyName = companyName
+      if (companyLogo !== undefined) update.companyLogo = companyLogo
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: 'No valid fields provided to update' })
+    }
+
+    update.updatedAt = new Date()
+
+    await usersColl.updateOne({ _id: existing._id }, { $set: update })
+
+    const updatedUser = await usersColl.findOne(
+      { _id: existing._id },
+      { projection: { password: 0 } }
+    )
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: updatedUser,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { createUser, getMe, updateMe  }

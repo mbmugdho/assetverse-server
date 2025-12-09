@@ -1,3 +1,4 @@
+const { ObjectId } = require('mongodb')
 const { getDB } = require('../config/db')
 
 /**
@@ -87,6 +88,8 @@ const getHREmployeesWithAssets = async (req, res, next) => {
     next(err)
   }
 }
+
+
 /**
  * PATCH /api/affiliations/:id/remove
  * HR: remove employee from team
@@ -104,7 +107,7 @@ const removeHREmployee = async (req, res, next) => {
     const assetsColl = db.collection('assets')
     const usersColl = db.collection('users')
 
-    //  Find the affiliation
+    // 1) Find the affiliation
     const affiliation = await affColl.findOne({ _id: new ObjectId(id) })
     if (!affiliation) {
       return res.status(404).json({ message: 'Affiliation not found' })
@@ -125,13 +128,13 @@ const removeHREmployee = async (req, res, next) => {
 
     const { employeeEmail, hrEmail } = affiliation
 
-    //  Mark affiliation as inactive
+    // 2) Mark affiliation as inactive
     await affColl.updateOne(
       { _id: affiliation._id },
       { $set: { status: 'inactive' } }
     )
 
-    //  Find all currently assigned assets for this HR+employee
+    // 3) Find all currently assigned assets for this HR+employee
     const assigned = await assignedColl
       .find({
         employeeEmail,
@@ -142,21 +145,24 @@ const removeHREmployee = async (req, res, next) => {
 
     const now = new Date()
 
-    // For each assigned asset:
-    //    - mark as returned & increment asset.availableQuantity by 1
+    // 4) For each assigned asset:
     for (const a of assigned) {
       await assignedColl.updateOne(
         { _id: a._id },
         { $set: { status: 'returned', returnDate: now } }
       )
 
+      // Ensure we handle both string and ObjectId forms
+      const assetId =
+        typeof a.assetId === 'string' ? new ObjectId(a.assetId) : a.assetId
+
       await assetsColl.updateOne(
-        { _id: new ObjectId(a.assetId) },
+        { _id: assetId },
         { $inc: { availableQuantity: 1 } }
       )
     }
 
-    // Decrement HR currentEmployees by 1 (if > 0)
+    // 5) Decrement HR currentEmployees by 1 (if > 0)
     await usersColl.updateOne(
       { email: hrEmail, currentEmployees: { $gt: 0 } },
       { $inc: { currentEmployees: -1 } }
@@ -168,6 +174,81 @@ const removeHREmployee = async (req, res, next) => {
       returnedAssetsCount: assigned.length,
     })
   } catch (err) {
+    console.error('removeHREmployee error:', err)
+    next(err)
+  }
+}
+
+// GET /api/affiliations/team?hrEmail=...
+// Employee: view colleagues in a company (for a specific HR)
+const getCompanyColleaguesForEmployee = async (req, res, next) => {
+  try {
+    const employeeEmail = req.user.email
+    const { hrEmail } = req.query
+
+    if (!hrEmail) {
+      return res.status(400).json({ message: 'hrEmail query parameter is required' })
+    }
+
+    const db = getDB()
+    const affColl = db.collection('employeeAffiliations')
+    const usersColl = db.collection('users')
+
+    // Verify current user is actively affiliated with this HR
+    const myAffiliation = await affColl.findOne({
+      employeeEmail,
+      hrEmail,
+      status: 'active',
+    })
+
+    if (!myAffiliation) {
+      return res.status(403).json({
+        message:
+          'You are not affiliated with this company and cannot view its team.',
+      })
+    }
+
+    // All active affiliations for this HR+company
+    const colleagueAffiliations = await affColl
+      .find({
+        hrEmail,
+        companyName: myAffiliation.companyName,
+        status: 'active',
+      })
+      .sort({ employeeName: 1 })
+      .toArray()
+
+    if (colleagueAffiliations.length === 0) {
+      return res.json([])
+    }
+
+    const colleagueEmails = colleagueAffiliations.map(a => a.employeeEmail)
+
+    // Load users (for DOB)
+    const users = await usersColl
+      .find({ email: { $in: colleagueEmails } })
+      .project({ email: 1, dateOfBirth: 1 })
+      .toArray()
+
+    const dobMap = {}
+    users.forEach(u => {
+      dobMap[u.email] = u.dateOfBirth
+    })
+
+    const result = colleagueAffiliations.map(a => ({
+      _id: a._id,
+      employeeEmail: a.employeeEmail,
+      employeeName: a.employeeName,
+      hrEmail: a.hrEmail,
+      companyName: a.companyName,
+      companyLogo: a.companyLogo,
+      affiliationDate: a.affiliationDate,
+      status: a.status,
+      dateOfBirth: dobMap[a.employeeEmail] || null,
+    }))
+
+    res.json(result)
+  } catch (err) {
     next(err)
   }
 }
@@ -176,4 +257,5 @@ module.exports = {
   getMyAffiliations,
   getHREmployeesWithAssets,
   removeHREmployee,
+  getCompanyColleaguesForEmployee,
 }

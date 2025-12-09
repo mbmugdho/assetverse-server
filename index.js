@@ -24,7 +24,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'AssetVerse API is running' })
 })
 
-// Attach routes (we'll fill these next)
+// Attach routes
 const authRoutes = require('./src/routes/authRoutes.js')
 const userRoutes = require('./src/routes/userRoutes.js')
 const assetRoutes = require('./src/routes/assetRoutes.js')

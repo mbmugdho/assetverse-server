@@ -1,14 +1,11 @@
-// src/routes/userRoutes.js
 const express = require('express')
-const { createUser, getMe } = require('../controllers/userController')
+const { createUser, getMe, updateMe } = require('../controllers/userController')
 const verifyToken = require('../middleware/verifyToken')
 
 const router = express.Router()
 
-// Called from frontend after Firebase registration
 router.post('/', createUser)
-
-// Get current user profile (JWT required)
 router.get('/me', verifyToken, getMe)
+router.patch('/me', verifyToken, updateMe)
 
 module.exports = router
