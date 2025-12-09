@@ -31,6 +31,8 @@ const assetRoutes = require('./src/routes/assetRoutes.js')
 const requestRoutes = require('./src/routes/requestRoutes.js')
 const assignmentRoutes = require('./src/routes/assignmentRoutes.js')
 const affiliationRoutes = require('./src/routes/affiliationRoutes.js')
+const packageRoutes = require('./src/routes/packageRoutes.js')
+const seedPackagesIfNeeded = require('./src/dbScripts/dbScriptsPackages.js')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
@@ -38,6 +40,7 @@ app.use('/api/assets', assetRoutes)
 app.use('/api/requests', requestRoutes)
 app.use('/api/assigned-assets', assignmentRoutes)
 app.use('/api/affiliations', affiliationRoutes)
+app.use('/api/packages', packageRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
@@ -50,9 +53,11 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     await connectDB()
+    await seedPackagesIfNeeded()
     app.listen(port, () => {
       console.log(`AssetVerse server running on port ${port}`)
     })
+
   } catch (err) {
     console.error('Failed to start server:', err)
     process.exit(1)
