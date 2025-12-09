@@ -44,9 +44,9 @@ const createAsset = async (req, res, next) => {
     const assetDoc = {
       productName,
       productImage,
-      productType,                      
+      productType,
       productQuantity: quantityNum,
-      availableQuantity: quantityNum,    
+      availableQuantity: quantityNum,
       dateAdded: now,
       hrEmail: req.user.email,
       companyName: hrUser.companyName || '',
@@ -75,12 +75,7 @@ const getAssets = async (req, res, next) => {
 
     const hrEmail = req.user.email
 
-    let {
-      page = 1,
-      limit = 10,
-      search = '',
-      type = 'All',
-    } = req.query
+    let { page = 1, limit = 10, search = '', type = 'All' } = req.query
 
     page = Number(page) || 1
     limit = Number(limit) || 10
@@ -114,6 +109,38 @@ const getAssets = async (req, res, next) => {
       limit,
       totalPages: Math.ceil(total / limit),
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Get all available assets (for employees to request)
+// GET /api/assets/available?search=&type=
+const getAvailableAssetsForRequest = async (req, res, next) => {
+  try {
+    const db = getDB()
+    const assetsColl = db.collection('assets')
+
+    let { search = '', type = 'All' } = req.query
+
+    const filter = {
+      availableQuantity: { $gt: 0 },
+    }
+
+    if (search) {
+      filter.productName = { $regex: search, $options: 'i' }
+    }
+
+    if (type !== 'All') {
+      filter.productType = type // "Returnable" | "Non-returnable"
+    }
+
+    const assets = await assetsColl
+      .find(filter)
+      .sort({ dateAdded: -1 })
+      .toArray()
+
+    res.json(assets)
   } catch (err) {
     next(err)
   }
@@ -233,4 +260,4 @@ const deleteAsset = async (req, res, next) => {
   }
 }
 
-module.exports = { createAsset, getAssets, updateAsset, deleteAsset }
+module.exports = { createAsset, getAssets, updateAsset, deleteAsset, getAvailableAssetsForRequest }

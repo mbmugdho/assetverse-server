@@ -4,6 +4,7 @@ const {
   getAssets,
   updateAsset,
   deleteAsset,
+  getAvailableAssetsForRequest,
 } = require('../controllers/assetController')
 const verifyToken = require('../middleware/verifyToken')
 const verifyHR = require('../middleware/verifyHR')
@@ -15,6 +16,9 @@ router.post('/', verifyToken, verifyHR, createAsset)
 
 // HR only: get assets with pagination & filters
 router.get('/', verifyToken, verifyHR, getAssets)
+
+// Authenticated (employee or HR): get all available assets to request
+router.get('/available', verifyToken, getAvailableAssetsForRequest)
 
 // HR only: update asset
 router.patch('/:id', verifyToken, verifyHR, updateAsset)
