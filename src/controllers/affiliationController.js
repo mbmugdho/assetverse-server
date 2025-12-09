@@ -87,5 +87,93 @@ const getHREmployeesWithAssets = async (req, res, next) => {
     next(err)
   }
 }
+/**
+ * PATCH /api/affiliations/:id/remove
+ * HR: remove employee from team
+ */
+const removeHREmployee = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid affiliation id' })
+    }
 
-module.exports = { getMyAffiliations, getHREmployeesWithAssets }
+    const db = getDB()
+    const affColl = db.collection('employeeAffiliations')
+    const assignedColl = db.collection('assignedAssets')
+    const assetsColl = db.collection('assets')
+    const usersColl = db.collection('users')
+
+    //  Find the affiliation
+    const affiliation = await affColl.findOne({ _id: new ObjectId(id) })
+    if (!affiliation) {
+      return res.status(404).json({ message: 'Affiliation not found' })
+    }
+
+    // Ensure this HR owns the affiliation
+    if (affiliation.hrEmail !== req.user.email) {
+      return res
+        .status(403)
+        .json({ message: 'You are not authorized to remove this employee' })
+    }
+
+    if (affiliation.status === 'inactive') {
+      return res
+        .status(400)
+        .json({ message: 'Employee is already inactive for this company' })
+    }
+
+    const { employeeEmail, hrEmail } = affiliation
+
+    //  Mark affiliation as inactive
+    await affColl.updateOne(
+      { _id: affiliation._id },
+      { $set: { status: 'inactive' } }
+    )
+
+    //  Find all currently assigned assets for this HR+employee
+    const assigned = await assignedColl
+      .find({
+        employeeEmail,
+        hrEmail,
+        status: 'assigned',
+      })
+      .toArray()
+
+    const now = new Date()
+
+    // For each assigned asset:
+    //    - mark as returned & increment asset.availableQuantity by 1
+    for (const a of assigned) {
+      await assignedColl.updateOne(
+        { _id: a._id },
+        { $set: { status: 'returned', returnDate: now } }
+      )
+
+      await assetsColl.updateOne(
+        { _id: new ObjectId(a.assetId) },
+        { $inc: { availableQuantity: 1 } }
+      )
+    }
+
+    // Decrement HR currentEmployees by 1 (if > 0)
+    await usersColl.updateOne(
+      { email: hrEmail, currentEmployees: { $gt: 0 } },
+      { $inc: { currentEmployees: -1 } }
+    )
+
+    res.json({
+      message: 'Employee removed from team. Active assets have been returned.',
+      affiliationId: id,
+      returnedAssetsCount: assigned.length,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = {
+  getMyAffiliations,
+  getHREmployeesWithAssets,
+  removeHREmployee,
+}
