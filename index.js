@@ -33,6 +33,9 @@ const assignmentRoutes = require('./src/routes/assignmentRoutes.js')
 const affiliationRoutes = require('./src/routes/affiliationRoutes.js')
 const packageRoutes = require('./src/routes/packageRoutes.js')
 const seedPackagesIfNeeded = require('./src/dbScripts/dbScriptsPackages.js')
+const paymentRoutes = require('./src/routes/paymentRoutes.js')
+const analyticsRoutes = require('./src/routes/analyticsRoutes.js')
+
 
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
@@ -41,6 +44,8 @@ app.use('/api/requests', requestRoutes)
 app.use('/api/assigned-assets', assignmentRoutes)
 app.use('/api/affiliations', affiliationRoutes)
 app.use('/api/packages', packageRoutes)
+app.use('/api/payments', paymentRoutes)
+app.use('/api/analytics', analyticsRoutes)
 
 // Global error handler (simple)
 app.use((err, req, res, next) => {
