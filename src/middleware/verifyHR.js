@@ -1,4 +1,3 @@
-// src/middleware/verifyHR.js
 const verifyHR = (req, res, next) => {
   if (!req.user || req.user.role !== 'hr') {
     return res.status(403).json({ message: 'Forbidden: HR only' })
