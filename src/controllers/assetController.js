@@ -33,7 +33,6 @@ const createAsset = async (req, res, next) => {
     const assetsColl = db.collection('assets')
     const usersColl = db.collection('users')
 
-    // Get HR  to read companyName
     const hrUser = await usersColl.findOne({ email: req.user.email })
     if (!hrUser) {
       return res.status(404).json({ message: 'HR user not found' })
@@ -65,8 +64,8 @@ const createAsset = async (req, res, next) => {
 
 /**
  * GET /api/assets
- * HR only
- * Query: page, limit, search, type
+ * HR only - with sorting support
+ * Query: page, limit, search, type, sortBy, sortOrder
  */
 const getAssets = async (req, res, next) => {
   try {
@@ -75,7 +74,14 @@ const getAssets = async (req, res, next) => {
 
     const hrEmail = req.user.email
 
-    let { page = 1, limit = 10, search = '', type = 'All' } = req.query
+    let { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      type = 'All',
+      sortBy = 'dateAdded',
+      sortOrder = 'desc'
+    } = req.query
 
     page = Number(page) || 1
     limit = Number(limit) || 10
@@ -90,12 +96,18 @@ const getAssets = async (req, res, next) => {
       filter.productType = type
     }
 
+    // Build sort object
+    const validSortFields = ['dateAdded', 'productName', 'productQuantity', 'availableQuantity']
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'dateAdded'
+    const sortDirection = sortOrder === 'asc' ? 1 : -1
+    const sort = { [sortField]: sortDirection }
+
     const skip = (page - 1) * limit
 
     const [data, total] = await Promise.all([
       assetsColl
         .find(filter)
-        .sort({ dateAdded: -1 })
+        .sort(sort)
         .skip(skip)
         .limit(limit)
         .toArray(),
@@ -114,8 +126,10 @@ const getAssets = async (req, res, next) => {
   }
 }
 
-// Get all available assets (for employees to request)
-// GET /api/assets/available?search=&type=
+/**
+ * GET /api/assets/available
+ * Authenticated (employee or HR): get all available assets to request
+ */
 const getAvailableAssetsForRequest = async (req, res, next) => {
   try {
     const db = getDB()
@@ -132,7 +146,7 @@ const getAvailableAssetsForRequest = async (req, res, next) => {
     }
 
     if (type !== 'All') {
-      filter.productType = type // "Returnable" | "Non-returnable"
+      filter.productType = type
     }
 
     const assets = await assetsColl
@@ -147,9 +161,124 @@ const getAvailableAssetsForRequest = async (req, res, next) => {
 }
 
 /**
+ * GET /api/assets/public
+ * PUBLIC: Get all assets for public listing page (limited info)
+ * Query: page, limit, search, type, sortBy, sortOrder
+ */
+const getPublicAssets = async (req, res, next) => {
+  try {
+    const db = getDB()
+    const assetsColl = db.collection('assets')
+
+    let { 
+      page = 1, 
+      limit = 12, 
+      search = '', 
+      type = 'All',
+      sortBy = 'dateAdded',
+      sortOrder = 'desc'
+    } = req.query
+
+    page = Number(page) || 1
+    limit = Number(limit) || 12
+
+    const filter = {}
+
+    if (search) {
+      filter.productName = { $regex: search, $options: 'i' }
+    }
+
+    if (type !== 'All') {
+      filter.productType = type
+    }
+
+    // Build sort object
+    const validSortFields = ['dateAdded', 'productName', 'productQuantity']
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'dateAdded'
+    const sortDirection = sortOrder === 'asc' ? 1 : -1
+    const sort = { [sortField]: sortDirection }
+
+    const skip = (page - 1) * limit
+
+    const [data, total] = await Promise.all([
+      assetsColl
+        .find(filter)
+        .project({
+          productName: 1,
+          productImage: 1,
+          productType: 1,
+          companyName: 1,
+          dateAdded: 1,
+          availableQuantity: 1,
+        })
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      assetsColl.countDocuments(filter),
+    ])
+
+    res.json({
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /api/assets/:id
+ * Authenticated: Get single asset details
+ */
+const getAssetById = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid asset id' })
+    }
+
+    const db = getDB()
+    const assetsColl = db.collection('assets')
+
+    const asset = await assetsColl.findOne({ _id: new ObjectId(id) })
+
+    if (!asset) {
+      return res.status(404).json({ message: 'Asset not found' })
+    }
+
+    // Get related assets (same type, different id, limit 4)
+    const relatedAssets = await assetsColl
+      .find({
+        _id: { $ne: new ObjectId(id) },
+        productType: asset.productType,
+      })
+      .project({
+        productName: 1,
+        productImage: 1,
+        productType: 1,
+        companyName: 1,
+        availableQuantity: 1,
+      })
+      .limit(4)
+      .toArray()
+
+    res.json({
+      asset,
+      relatedAssets,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
  * PATCH /api/assets/:id
  * HR only
- * Body can contain any of: { productName, productImage, productType, productQuantity }
  */
 const updateAsset = async (req, res, next) => {
   try {
@@ -260,4 +389,12 @@ const deleteAsset = async (req, res, next) => {
   }
 }
 
-module.exports = { createAsset, getAssets, updateAsset, deleteAsset, getAvailableAssetsForRequest }
+module.exports = { 
+  createAsset, 
+  getAssets, 
+  updateAsset, 
+  deleteAsset, 
+  getAvailableAssetsForRequest,
+  getPublicAssets,
+  getAssetById,
+}
