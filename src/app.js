@@ -7,24 +7,12 @@ dotenv.config()
 
 const app = express()
 
-// ❌ PROBLEM before:
-// You only allowed a single origin from CLIENT_URL or localhost.
-// If CLIENT_URL is not exactly "https://assetverse.vercel.app",
-// CORS will not send Access-Control-Allow-Origin, and the browser blocks it.
-//
-// app.use(
-//   cors({
-//     origin: process.env.CLIENT_URL || 'http://localhost:5173',
-//     credentials: true,
-//   })
-// )
-
-// ✅ FIX: explicitly allow all known frontend origins
+// CORS Configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL,                       // if you still want to keep using env
-  'https://assetverse.vercel.app',             // NEW: your current frontend domain
-  'https://assetverse-client-five.vercel.app', // optional: old frontend domain, safe to keep
-  'http://localhost:5173',                     // local dev
+  process.env.CLIENT_URL,
+  'https://assetverse.vercel.app',
+  'https://assetverse-client-five.vercel.app',
+  'http://localhost:5173',
 ].filter(Boolean)
 
 app.use(
@@ -38,12 +26,12 @@ app.use(
 app.use(express.json())
 app.use(cookieParser())
 
-// Health check (note: if your mentor expects /health, you can add it back too)
+// Health check
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'AssetVerse API is running' })
 })
 
-// Attach routes (note: paths are from src/, not root)
+// Import routes
 const authRoutes = require('./routes/authRoutes.js')
 const userRoutes = require('./routes/userRoutes.js')
 const assetRoutes = require('./routes/assetRoutes.js')
@@ -53,7 +41,9 @@ const affiliationRoutes = require('./routes/affiliationRoutes.js')
 const packageRoutes = require('./routes/packageRoutes.js')
 const paymentRoutes = require('./routes/paymentRoutes.js')
 const analyticsRoutes = require('./routes/analyticsRoutes.js')
+const contactRoutes = require('./routes/contactRoutes.js') // NEW
 
+// Mount routes
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/assets', assetRoutes)
@@ -63,8 +53,9 @@ app.use('/api/affiliations', affiliationRoutes)
 app.use('/api/packages', packageRoutes)
 app.use('/api/payments', paymentRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/contact', contactRoutes) // NEW
 
-// Global error handler (simple)
+// Global error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err)
   res.status(err.status || 500).json({
